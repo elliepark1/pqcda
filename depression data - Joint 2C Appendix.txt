@@ -1,0 +1,131 @@
+TITLE:	
+	Mplus Syntax for Joint Mixture Model for Latent Growth Curve Analysis with Nonignorable Dropout (Quadratic)  
+
+DATA: 
+	FILE = data.csv;
+
+VARIABLE: 
+	NAMES = y1 y2 y3 y4 site1 site2 ses d2-d4; 
+	!y1-y4 are longitudinal outcomes (continuous) and d2-d4 are the dropout occasion (coded: 0/1/999)
+	USEVARIABLES = y1 y2 y3 y4 site1 site2 ses d2-d4;
+	CATEGORICAL = d2 d3 d4; 
+	MISSING are all (999);
+	CLASSES = c (2);
+
+ANALYSIS:
+	ESTIMATOR = MLR;
+	TYPE = MIXTURE;
+	ALGORITHM = INTEGRATION; 
+ 	!MINTEGRATION = 500;
+	!PROCESSOR = 6; 
+
+MODEL: 
+	%OVERALL%
+	beta10 beta11 beta 12 | y1@0 y2@1 y3@2 y4@3; 
+	!latent growth curve model with quadratic terms  
+
+	y1 on site1 (x1y);
+	y2 on site1 (x1y);
+	y3 on site1 (x1y);
+	y4 on site1 (x1y);
+	y1 on site2 (x2y);
+	y2 on site2 (x2y);
+	y3 on site2 (x2y);
+	y4 on site2 (x2y);
+	y1 on ses (x3y);
+	y2 on ses (x3y);
+	y3 on ses (x3y);
+	y4 on ses (x3y);
+	!coefficients for the effects of explanatory variables in LGC   
+
+	d2 on beta10 (gamma0);
+	d3 on beta10 (gamma0);
+	d4 on beta10 (gamma0);
+	d2 on beta11 (gamma1);
+	d3 on beta11 (gamma1);
+	d4 on beta11 (gamma1);
+	d2 on beta12 (gamma2);
+	d3 on beta12 (gamma2);
+	d4 on beta12 (gamma2);
+	!coefficients for the effects of shared random effects on the dropout probabilities   
+
+	d2 on site1 (x1);
+	d3 on site1 (x1);
+	d4 on site1 (x1);
+	d2 on site2 (x2);
+	d3 on site2 (x2);
+	d4 on site2 (x3);
+	d2 on ses (x3);
+	d3 on ses (x3);
+	d4 on ses (x3);
+	!coefficients for the effects of explanatory variables in logit mixed-effect model for the dropout    
+
+	[c#1] (logitp1); 
+	!give names to the logit of the class probabilities   
+  
+	%c#1%
+	[beta10] (beta10c1); 
+	[beta11] (beta11c1);
+	!means of latent subgroup 1
+
+	[d2$1] (p1c1);
+	[d3$1] (p2c1);
+	[d4$1] (p3c1);
+	!thresholds for dropout model 
+
+	%c#2% 
+	[beta10] (beta10c2);
+	[beta11] (beta11c2);
+	[beta12] (beta12c2);
+	!means of latent subgroup 2
+
+	[d2$1] (p1c2);
+	[d3$1] (p2c2);
+	[d4$1] (p3c2);  
+
+	beta10 (beta10var); 
+	beta11 (beta11var);
+	beta12 (beta12var);
+	!common vars for latent subgroups 
+
+	beta10 with beta11 (bcov1011);
+	beta10 with beta12 (bcov1012);
+	beta11 with beta12 (bcov1112);
+	!common covs for latent subgroups
+
+MODEL CONSTRAINT:
+	new(g1,g12,g2,g22,pi1,pi2,beta10c,beta11c,beta12c,mean10c1r,mean10c2r,mean11c1r,mean11c2r,mean12c1r,mean12c2r,sig11,sig22,sig33,sig12,sig13,sig23);
+
+	pi1 = exp(logitp1)/(1+exp(logitp1));
+	pi2 = 1 - pi1;
+	!backtransform to the probability scale for class probabilities
+
+	beta10c = beta10c1*pi1 + beta10c2*pi2;
+	beta11c = beta11c1*pi1 + beta11c2*pi2;
+	beta12c = beta12c1*pi1 + beta12c2*pi2;
+	!overall means for intercept and slopes
+
+	mean10c1r = beta10c1-beta10c;
+	mean10c2r = beta10c2-beta10c;
+	mean11c1r = beta11c1-beta11c;
+	mean11c2r = beta11c2-beta11c;
+	mean12c1r = beta12c1-beta12c;
+	mean12c2r = beta12c2-beta12c;
+	!random effects means for latent subgroups 1 and 2   
+
+	sig11 = mean10c1r*mean10c1r*pi1*pi2+mean10c2r*mean10c2r*pi1*pi2+beta10var;
+	sig22 = mean11c1r*mean11c1r*pi1*pi2+mean11c2r*mean11c2r*pi1*pi2+beta11var;
+	sig33 = mean12c1r*mean12c1r*pi1*pi2+mean12c2r*mean12c2r*pi1*pi2+beta12var;
+	sig12 = mean10c1r*mean11c1r*pi1*pi2+mean10c2r*mean11c2r*pi1*pi2+bcov1011;
+	sig13 = mean10c1r*mean12c1r*pi1*pi2+mean10c2r*mean12c2r*pi1*pi2+bcov1012;
+	sig23 = mean11c1r*mean12c1r*pi1*pi2+mean11c2r*mean12c2r*pi1*pi2+bcov1112;
+	!overall variance-covariance matrix   
+
+	p2c1 = p1c1+g1*2+g12*4;
+	p3c1 = p2c1+g1*3+g12*9;
+	p2c2 = p1c2+g2*2+g22*4;
+	p3c2 = p2c2+g2*3+g22*9;
+	!fixed effects coefficients for dropout model     
+
+
+
